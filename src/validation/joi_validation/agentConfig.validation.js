@@ -15,7 +15,7 @@ const createBridgeSchema = Joi.object({
   bridge_limit_start_date: Joi.date().optional(),
   folder_id: Joi.string().allow(null).optional(),
   // When true, await create and return the agent in the HTTP response instead of RTLayer.
-  http_response: Joi.boolean().optional().default(false)
+  flag: Joi.boolean().optional().default(false)
 }).unknown(true); // Allow additional fields that might be added dynamically
 
 const updateBridgeSchema = Joi.object({

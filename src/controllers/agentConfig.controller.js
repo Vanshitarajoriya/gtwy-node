@@ -14,7 +14,9 @@ import { ResponseSender } from "../services/utils/customResponse.utils.js";
 
 const responseSender = new ResponseSender();
 
-const createAgentInBackground = async (req, { useRtLayer = true } = {}) => {
+const createAgentInBackground = async (req) => {
+  // flag=true → return agent in HTTP response; flag=false → notify via RTLayer
+  const flag = req.body?.flag === true;
   let user_id = req.profile.user.id;
   const org_id = req.profile.org.id;
   const rtChannel = `org_${org_id}_${user_id}`;
@@ -262,7 +264,7 @@ const createAgentInBackground = async (req, { useRtLayer = true } = {}) => {
       });
     }
 
-    if (useRtLayer) {
+    if (!flag) {
       await responseSender.sendResponse({
         ...rtResponseBase,
         data: { type: "agent_created", user_id, agent }
@@ -272,7 +274,7 @@ const createAgentInBackground = async (req, { useRtLayer = true } = {}) => {
 
     return { agent, user_id };
   } catch (e) {
-    if (useRtLayer) {
+    if (!flag) {
       await responseSender
         .sendResponse({
           ...rtResponseBase,
@@ -290,23 +292,18 @@ const createAgentInBackground = async (req, { useRtLayer = true } = {}) => {
 };
 
 const createAgentController = async (req, res, next) => {
-  const httpResponse = req.body?.http_response === true;
+  const flag = req.body?.flag === true;
 
-  if (httpResponse) {
-    try {
-      const result = await createAgentInBackground(req, { useRtLayer: false });
-      res.locals = { success: true, agent: result.agent };
-      req.statusCode = 200;
-    } catch (e) {
-      res.locals = { success: false, message: e.message || "Error in creating agent" };
-      req.statusCode = 500;
-    }
+  if (flag) {
+    const result = await createAgentInBackground(req);
+    res.locals = { success: true, agent: result.agent };
+    req.statusCode = 200;
     return next();
   }
 
   res.locals = { success: true, accepted: true, message: "Agent creation started" };
   req.statusCode = 202;
-  createAgentInBackground(req, { useRtLayer: true });
+  createAgentInBackground(req);
   return next();
 };
 
