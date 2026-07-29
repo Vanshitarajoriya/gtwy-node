@@ -14,7 +14,7 @@ import { ResponseSender } from "../services/utils/customResponse.utils.js";
 
 const responseSender = new ResponseSender();
 
-const createAgentInBackground = async (req) => {
+const createAgentInBackground = async (req, { useRtLayer = true } = {}) => {
   let user_id = req.profile.user.id;
   const org_id = req.profile.org.id;
   const rtChannel = `org_${org_id}_${user_id}`;
@@ -262,28 +262,51 @@ const createAgentInBackground = async (req) => {
       });
     }
 
-    await responseSender.sendResponse({
-      ...rtResponseBase,
-      data: { type: "agent_created", user_id, agent }
-    });
-  } catch (e) {
-    await responseSender
-      .sendResponse({
+    if (useRtLayer) {
+      await responseSender.sendResponse({
         ...rtResponseBase,
-        data: {
-          type: "agent_create_failed",
-          user_id,
-          message: e.message || "Error in creating agent"
-        }
-      })
-      .catch((rtErr) => console.error("RT agent create error notify failed:", rtErr.message));
+        data: { type: "agent_created", user_id, agent }
+      });
+      return;
+    }
+
+    return { agent, user_id };
+  } catch (e) {
+    if (useRtLayer) {
+      await responseSender
+        .sendResponse({
+          ...rtResponseBase,
+          data: {
+            type: "agent_create_failed",
+            user_id,
+            message: e.message || "Error in creating agent"
+          }
+        })
+        .catch((rtErr) => console.error("RT agent create error notify failed:", rtErr.message));
+      return;
+    }
+    throw e;
   }
 };
 
 const createAgentController = async (req, res, next) => {
+  const httpResponse = req.body?.http_response === true;
+
+  if (httpResponse) {
+    try {
+      const result = await createAgentInBackground(req, { useRtLayer: false });
+      res.locals = { success: true, agent: result.agent };
+      req.statusCode = 200;
+    } catch (e) {
+      res.locals = { success: false, message: e.message || "Error in creating agent" };
+      req.statusCode = 500;
+    }
+    return next();
+  }
+
   res.locals = { success: true, accepted: true, message: "Agent creation started" };
   req.statusCode = 202;
-  createAgentInBackground(req);
+  createAgentInBackground(req, { useRtLayer: true });
   return next();
 };
 
