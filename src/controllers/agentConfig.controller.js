@@ -15,6 +15,8 @@ import { ResponseSender } from "../services/utils/customResponse.utils.js";
 const responseSender = new ResponseSender();
 
 const createAgentInBackground = async (req) => {
+  // flag=true → return agent in HTTP response; flag=false → notify via RTLayer
+  const flag = req.body?.flag === true;
   let user_id = req.profile.user.id;
   const org_id = req.profile.org.id;
   const rtChannel = `org_${org_id}_${user_id}`;
@@ -262,25 +264,43 @@ const createAgentInBackground = async (req) => {
       });
     }
 
-    await responseSender.sendResponse({
-      ...rtResponseBase,
-      data: { type: "agent_created", user_id, agent }
-    });
-  } catch (e) {
-    await responseSender
-      .sendResponse({
+    if (!flag) {
+      await responseSender.sendResponse({
         ...rtResponseBase,
-        data: {
-          type: "agent_create_failed",
-          user_id,
-          message: e.message || "Error in creating agent"
-        }
-      })
-      .catch((rtErr) => console.error("RT agent create error notify failed:", rtErr.message));
+        data: { type: "agent_created", user_id, agent }
+      });
+      return;
+    }
+
+    return { agent, user_id };
+  } catch (e) {
+    if (!flag) {
+      await responseSender
+        .sendResponse({
+          ...rtResponseBase,
+          data: {
+            type: "agent_create_failed",
+            user_id,
+            message: e.message || "Error in creating agent"
+          }
+        })
+        .catch((rtErr) => console.error("RT agent create error notify failed:", rtErr.message));
+      return;
+    }
+    throw e;
   }
 };
 
 const createAgentController = async (req, res, next) => {
+  const flag = req.body?.flag === true;
+
+  if (flag) {
+    const result = await createAgentInBackground(req);
+    res.locals = { success: true, agent: result.agent };
+    req.statusCode = 200;
+    return next();
+  }
+
   res.locals = { success: true, accepted: true, message: "Agent creation started" };
   req.statusCode = 202;
   createAgentInBackground(req);
