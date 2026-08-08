@@ -8,6 +8,6 @@ const router = express.Router();
 
 router.post("/", middleware, InternalAuth, validate(blockedOrgValidation.blockOrg), blockedOrgController.blockOrg);
 router.delete("/:org_id", middleware, InternalAuth, validate(blockedOrgValidation.unblockOrg), blockedOrgController.unblockOrg);
-router.get("/", middleware, InternalAuth, blockedOrgController.listBlockedOrgs);
+router.get("/", middleware, blockedOrgController.listBlockedOrgs);
 
 export default router;
