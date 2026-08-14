@@ -67,6 +67,7 @@ try {
   // monitorCommands lets us time every Mongo command and warn on slow ones.
   mongoose.connect(config.mongo.uri, { monitorCommands: true });
   mongoose.connection.on("connected", () => {
+    console.log("mongodb connected");
     const mongoClient = mongoose.connection.getClient();
     // Ignore high-frequency internal chatter that would drown the slow-call signal.
     const ignoredCommands = new Set(["ismaster", "hello", "ping", "endSessions", "saslStart", "saslContinue", "getnonce", "authenticate", "logout"]);
