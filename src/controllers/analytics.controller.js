@@ -36,7 +36,7 @@ const getAgentAnalytics = async (req, res, next) => {
       filter_by
     } = req.query;
     // RT channel is always org_id + "_" + bridge_id.
-    const channel = `${org_id}_${bridge_id}_${req.query.user_id}`;
+    const channel = `${org_id}_${bridge_id}_${req.profile.user?.id}`;
 
     const window = analyticsService.computeWindow({ range, start_date, end_date, interval });
 
